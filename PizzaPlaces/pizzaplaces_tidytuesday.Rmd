@@ -1,0 +1,122 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+library(glue)
+library(broom)
+theme_set(theme_minimal())
+```
+
+
+```{r}
+pizza_jared <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-10-01/pizza_jared.csv")
+
+
+pizza_jared %>% 
+  kable()
+
+```
+
+```{r}
+answer_order <- c("Never Again","Poor", "Average", "Good","Excellent")
+
+by_place <- pizza_jared %>% 
+  mutate( time = as.POSIXct(time, origin="1970-01-01"),
+          date = as.Date(time),
+          answer = fct_relevel(answer, answer_order)) %>% 
+  group_by(place, answer) %>% 
+  summarise(votes=sum(votes)) %>% 
+  mutate(total = sum(votes)) %>% 
+  mutate(percent = votes/total,
+         answer_integer = as.integer(answer),
+         average=sum(answer_integer*percent)) %>% 
+  ungroup()
+
+
+```
+
+```{r}
+by_place %>% 
+  filter(total >= 29) %>% 
+  mutate(place = fct_reorder(place, average)) %>% 
+  ggplot(aes(answer, percent)) +
+  geom_col() +
+  facet_wrap(~place) +
+  theme(axis.text.x=element_text(angle=90, hjust = 1)) +
+  labs(x="", y="",
+       title="What is the most popular pizza place in Open Stats meetup?",
+       subtitle="Only the 9 pizza places with the most respondents")
+```
+
+```{r}
+by_place %>% 
+  # trick to choose "top N"
+  # reorder by total de votes in reverse order
+  # convert to integer and get "rank" <= N
+  filter(as.integer(fct_reorder(place, total, .desc = T))<=16,
+         answer!="Fair") %>% 
+  mutate(place = glue("{place} ({total})"), # number of samples
+         place = fct_reorder(place, average)) %>% 
+  ggplot(aes(answer, percent)) +
+  geom_col() +
+  facet_wrap(~place) +
+  theme(axis.text.x=element_text(angle=90, hjust = 1)) +
+  labs(x="", y="",
+       title="What is the most popular pizza place in Open Stats meetup?",
+       subtitle="Only the 16 pizza places with the most respondents")
+```
+
+```{r}
+
+x <- c(1,2,3,4,5)
+
+# these are equivalent !!
+t.test(x)
+tidy(lm(x~1), conf.int = T)
+
+# great a sample from x with each frequency
+# apply a t.test
+t_test_repeated <- function(x,frequency){
+  tidy(t.test(rep(x,frequency)))
+}
+# check
+t_test_repeated(x,c(5,10,100,50,30))
+
+by_place %>% 
+  filter(total>=5) %>% 
+  group_by(place, total) %>% 
+  summarise(t_test_result=list(t_test_repeated(answer_integer, votes))) %>% 
+  ungroup() %>% 
+  unnest(t_test_result) %>% 
+  select(place, total, average=estimate, low=conf.low, high=conf.high) %>% 
+  mutate(place = glue("{place} ({total})"), # number of samples
+         place=fct_reorder(place, average)) %>% 
+  top_n(16,total) %>% 
+  ggplot(aes(average, place)) +
+  geom_point(aes(size=total)) +
+  geom_errorbarh(aes(xmin=low, xmax=high)) +
+  labs(x="Average score (1-5 Likert Scale)",
+       y="",
+       title="What is the most popular pizza place in Open Stats meetup?",
+       subtitle = "Only the 16 pizza places with the most respondents",
+       size="Respondents")
+  
+
+```
+
+
+```{r}
+pizza_barstool <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-10-01/pizza_barstool.csv")
+# pizza_datafiniti <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-10-01/pizza_datafiniti.csv")
+```
+
+```{r}
+pizza_barstool
+```
+

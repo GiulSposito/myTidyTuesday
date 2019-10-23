@@ -26,7 +26,7 @@ pizza_jared %>%
 ```{r}
 answer_order <- c("Never Again","Poor", "Average", "Good","Excellent")
 
-by_place <- pizza_jared %>% 
+by_place_answer <- pizza_jared %>% 
   mutate( time = as.POSIXct(time, origin="1970-01-01"),
           date = as.Date(time),
           answer = fct_relevel(answer, answer_order)) %>% 
@@ -42,7 +42,7 @@ by_place <- pizza_jared %>%
 ```
 
 ```{r}
-by_place %>% 
+by_place_answer %>% 
   filter(total >= 29) %>% 
   mutate(place = fct_reorder(place, average)) %>% 
   ggplot(aes(answer, percent)) +
@@ -55,7 +55,7 @@ by_place %>%
 ```
 
 ```{r}
-by_place %>% 
+by_place_answer %>% 
   # trick to choose "top N"
   # reorder by total de votes in reverse order
   # convert to integer and get "rank" <= N
@@ -88,7 +88,7 @@ t_test_repeated <- function(x,frequency){
 # check
 t_test_repeated(x,c(5,10,100,50,30))
 
-by_place %>% 
+by_place_answer %>% 
   filter(total>=5) %>% 
   group_by(place, total) %>% 
   summarise(t_test_result=list(t_test_repeated(answer_integer, votes))) %>% 
@@ -107,6 +107,8 @@ by_place %>%
        subtitle = "Only the 16 pizza places with the most respondents",
        size="Respondents")
   
+by_place <- by_place_answer %>% 
+  distinct(place, total, average)
 
 ```
 
@@ -117,6 +119,102 @@ pizza_barstool <- readr::read_csv("https://raw.githubusercontent.com/rfordatasci
 ```
 
 ```{r}
-pizza_barstool
+# too bad (few points)
+pizza_barstool %>% 
+  select(place=name, barstool_total = review_stats_all_count,
+         barstool_average = review_stats_all_average_score) %>% 
+  inner_join(by_place, by="place") %>% 
+  group_by(place) %>% 
+  filter(n()==1) %>% 
+  ungroup() %>% 
+  filter(barstool_total>=5,
+         total >= 5) %>% 
+  ggplot(aes(average, barstool_average)) +
+  geom_point() +
+  labs(x="Meetup", y="Barstool")
+  
+```
+
+```{r}
+pizza_barstool %>% 
+  top_n(50, review_stats_all_count) %>% 
+  ggplot(aes(price_level, review_stats_all_average_score, group=price_level)) +
+  geom_boxplot
+
+pizza_barstool %>% 
+  filter(review_stats_all_count>=50) %>% 
+  mutate(name = fct_reorder(name, review_stats_all_average_score)) %>% 
+  ggplot(aes(review_stats_all_average_score, name, size=review_stats_all_count)) +
+  geom_point() +
+  labs(x="Average rating", size="# of review", y="",
+       title="Barstool Sports ratings of pizza places",
+       subtitle = "only places with at least 50 reviews")
+
+```
+
+```{r}
+pizza_barstool %>%
+  filter( review_stats_all_count >= 20 ) %>% 
+  add_count(city) %>% 
+  filter(n>=6) %>% 
+  mutate( city = glue("{city} ({n})") ) %>% 
+  ggplot(aes(city, review_stats_all_average_score)) +
+  geom_boxplot() +
+  labs(subtitle = "Only pizza places with at least 20 reviews", y="review", x="")
+```
+
+```{r}
+pizza_barstool %>% 
+  select(place=name,
+         price_level, 
+         contains("review")) %>% 
+  rename_all(~str_remove(., "review_stats_")) %>% 
+  select(-contains("provider")) %>% 
+  select(contains("count")) %>% 
+  gather(key, value) %>% 
+  ggplot(aes(value)) +
+  geom_histogram() +
+  facet_wrap(~key)
+```
+
+
+```{r}
+pizza_cleaned <- pizza_barstool %>% 
+  select(place=name,
+         price_level, 
+         contains("review")) %>% 
+  rename_all(~str_remove(., "review_stats_")) %>% 
+  select(-contains("provider"))
+
+pizza_cleaned %>% 
+  filter(critic_count>0) %>% 
+  ggplot(aes(critic_average_score, dave_average_score)) +
+  geom_point() +
+  geom_abline(color="red") +
+  geom_smooth(method = "lm") +
+  labs(x="Critic average score", y="Dave score", 
+       title="Does Barstool Sports' Dave agree with the critics?")
+  
+```
+
+```{r}
+pizza_cleaned %>% 
+  filter( community_count >=20,
+          critic_count > 0) %>% 
+  ggplot(aes(critic_average_score, community_average_score)) +
+  geom_point() +
+  geom_abline(color="red") +
+  geom_smooth(method="lm")
+  
+```
+
+```{r}
+pizza_cleaned %>% 
+  filter( community_count >=20 ) %>% 
+  ggplot(aes(community_average_score, dave_average_score)) +
+  geom_point(aes( size=community_count)) +
+  geom_abline(color="red") +
+  geom_smooth(method="lm") +
+  labs(size="# of community reviews", x="community score", y="Dave score")
 ```
 

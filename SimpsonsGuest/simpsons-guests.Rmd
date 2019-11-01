@@ -1,0 +1,76 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r loaddata}
+
+library(tidyverse)
+theme_set(theme_light())
+
+simpsons <- readr::read_delim("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-08-27/simpsons-guests.csv", delim = "|", quote = "") %>% 
+  mutate( self = str_detect(role, "self|selves"), 
+          season=parse_number(season))
+
+```
+
+```{r}
+simpsons %>% 
+  filter(self) %>% 
+  count(guest_star, role, sort=T) %>% 
+  filter(n>1) %>% 
+  mutate(guest_star=fct_reorder(guest_star,n)) %>% 
+  ggplot(aes(x=guest_star, y=n)) +
+  geom_col() +
+  coord_flip() +
+  labs(title="Who has played themselves in multiple Simpsons episodes?")
+```
+
+```{r}
+simpsons %>% 
+  separate_rows(role, sep=";\\s+") %>% 
+  add_count(role, sort = T) %>% 
+  filter(n>=10) %>% 
+  count(season=parse_number(season), role) %>%
+  mutate(role=fct_reorder(role, -n, sum)) %>% 
+  ggplot(aes(season, n)) +
+  geom_col() +
+  facet_wrap(~role, ncol=1)
+```
+
+
+```{r}
+# downloaded from Kaggle (https://www.kaggle.com/pierremegret/dialogue-lines-of-the-simpsons#simpsons_dataset.csv)
+dialogue <- read_csv("./data/simpsons_dataset.csv.zip") %>% 
+  rename(role=raw_character_text, line=spoken_words)
+
+guests_processed <- dialogue %>% 
+  separate_rows(role, sep=";\\s+") %>% 
+  mutate(role = ifelse(self, guest_star, role),
+         role = ifelse(role == "Edna Krabappel", "Edna Krabappel-Flanders", role))
+
+simpsons_dataset %>% 
+  count(role, sort=T) %>% 
+  semi_join(simpsons, by="role")
+
+guests_processed %>% 
+  count(role, sort = T) %>% 
+  anti_join(simpsons_dataset, by="role")
+
+simpsons_dataset %>% 
+  filter( str_detect(role,"Krab")) %>% 
+  count(role)
+
+```
+
+
+```{r}
+
+
+```
+
+
+
+

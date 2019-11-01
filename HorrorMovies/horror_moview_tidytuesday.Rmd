@@ -38,7 +38,6 @@ horror_movies %>%
   ggplot(aes(budget)) +
   geom_histogram() +
   scale_x_log10(labels=scales::dollar)
-
 ```
 
 Do higher budget movies end up higher rated?
@@ -218,8 +217,6 @@ tidy(feature_lasso_model$glmnet.fit) %>%
   labs(x="", y="Coefficent for predicting horror movie ratings",
        title="What affects a horror movie rating?",
        subtitle = "Based on a lasso regression to predict IMDb ratings of ~3000 movies")
-
-
 ```
 
 What am I going to watch?

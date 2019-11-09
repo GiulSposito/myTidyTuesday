@@ -1,0 +1,150 @@
+---
+title: "week02 - Analytics Technologies"
+output:
+  html_document:
+    keep_md: yes
+---
+
+# Analytical Technologies
+
+## Data Storage and Databases
+
++ Each source systems usually has its own storage, but ...
+  + Optimized for functional performance, not data extraction & analysis
+    + Online Transactional Processing (OLTP)  vs.
+    + Online Analytical Processing (OLAP) 
+  + Typically has a lot more stuff than we are interested in
+  + Risky to access directly; ‘back end’ load can impact ‘front end’ stability
+  + Retention times vary; data may not be stored locally for very long
++ Sometimes we actually do connect directly to source systems, or even intercept data as it ‘streams’ through a connection
++ However, the solution is usually to gather data into a separate storage location
+May be centralized, semi-centralized, or ‘virtualized’
+
+### File Systems
+
++ Think of your own computer; can essentially put anything we want in there and just note it’s name and location
++ Handles all sorts of information, including ‘unstructured’ data really well
++ Primary limitation is in ‘readiness’ for use and the ability to interconnect different elements in a meaningful way
++ The Hadoop Distributed File System (HDFS) is a ‘Big Data’ manifestation of the idea, using massively parallel processing on relatively inexpensive infrastructure to efficiently store large amounts of varied information
+
++ Delimited Text Files
+  + Data stored as text, with breaks between fields & rows defined by  ‘delimiters’ - specific characters or formatting codes
+  + Comma-separated value (CSV), Tab-delimited and Pipe-delimited (|) most common
++ Extensible Markup Language (XML) Files
+  + Flexible structure for encoding documents & data, especially for Web applications
++ Log Files
+  + Largely nonstandard output from machine data sources, including the Web
+  + Generally require some sort of parser to interpret
++ Application-Specific Files
+  + Excel Files
+  + Specialized files like SAS,SPSS or Tableau files
+  
+### Databases
+
++ Database
+  + Simply an organized collection of data
+  + Usually refers to the structure/design itself as well as the actual data that resides in the structure
+
++ Database Management System (DBMS)
+  + Software used for creating, maintaining and accessing databases
++ Relational Database
+  + Invented by E. F. Codd at IBM in 1969-70
+  + Far and away the most common type of database system
+  + Stores information in two dimensional tables with defined set of relationships among them
+  + Highly efficient and intuitive way of storing information
+  
+There are a variety of emerging database types, most designed to handle ‘big-data’ applications and/or ‘unstructured’ data
+
+**Graph Databases**
++ Based on graph theory; tends to work well with highly interconnected data (geographic, network, etc.)
+
+**Document Store**
++ As name suggests, generally designed to store documents and key pieces of metadata
+
+**Columnar Databases**
++ Improves performance by storing data in ‘columns’ of similar types vs. the ‘rows’ of relational databases
+
+**Key-Value Store**
++ Simple database system which stores information in pairs (key & value)
+Can be used to achieve very high speed in certain types of operations
+
+# The Cloud
+
+**Software as a Service (Saas)**
++ Software hosted on machines provided by third party
++ Applications accessed remotely via client and/or the Web
++ Targeted at application end users 
+
+**Platform as a Service (PaaS)**
++ Development environment hosted by third party
++ Targeted at developers
+
+**Infrastructure as a Service (IaaS)**
++ Raw building blocks of data environment provided by third party
++ Processing capacity, storage, connectivity, security, etc.
+
+
+**Why the Cloud is Attractive**
++ Inexpensive & easy to set up
++ Can scale quickly and easily
++ Less distraction & overhead
+
+**Why not go to the Cloud?**
++ Control & security
++ Inertia & existing resource investment
++ Highly unique needs
++ Location of source data
++ Scale
+
+## Summary
+
+**Big Data**
++ Ingest & process data
++ Store structured & unstructured data
++ Enable analytics on data
++ Provide infrastructure
+
+**Cloud Computing**
++ SaaS, PaaS, IaaS
++ Pro/cons
++ How it can work with Big Data
+
+# Virtualization, Federatino and In-Memory Computing and In-database analytics
+
+## Data Virtualization
+
+The idea behind data virtualization is that we keep source data where it is for each source, but we make it look like all the data is in one place and we allow users to access that data using one common interface. With data virtualization, we don't necessarily seek to change the data or integrate data from multiple sources. But we make it a lot simpler for users to get it without having to worry about details of the underlying data format and technology.
+
++ One advantage of data virtualization is that we can avoid having to store data in multiple places
++ Another advantage is that changes in source data are usually reflected immediately in the user access layer. Since I don't need to wait for ETL processes
++ It's also easier to alter the access layer, should there be changes in the structure of the underlying source data.
+
++ However, data virtualization does have some limitations. First and foremost, while it removes a data layer in the environment, it adds a processing layer
++ Data cleansing or complex transformation operations are required, those processes add to the processing load, and can further slow down access
++ Data virtualization alone only makes data look like it's in one place. It doesn't necessarily make sense of how data from different sources relate to each other, which one of the primary advantages of constructing a centralized database in the first place.
+
+## Data Federation
+
+With data federation, not only do we make it look like data is in one place, but we actually fit that data into a common integrated data model. We perform all the same transformations and establish all the same relationships among data entities that we would do in a physical database, but we do it all virtually. That is, without ever actually moving the data.
+
+The advantages of data federation are similar to those of data virtualization with the added benefit of presenting a more integrated view of data from multiple sources to the user. Of course, this comes at the cost of even more complex processing that can result in slower performance when data is accessed or extracted.
+
+For both data virtualization and federation: while they eliminate the need to move data using ETL processes, they still require development and maintenance to establish those connections and present a unified view of data to users.
+
+### Benefits and Disadvantages
+
+Data virtualization and data federation can be attractive in environments where resources are limited, the velocity of changes is very rapid, little transformation or integration is required, or when sources have very high quality data or store a lot of history themselves. 
+
+However, they become less attractive as the volume or complexity of transformations increase, or when there is a need to store historical data outside the source.
+
+## In-Memory Computing
+
+With in-memory computing, all the data needed for analysis is actually loaded into a computer or server's random access memory, or RAM, where it can be accessed very quickly. Typically, a whole data structure, including relationships between data entities, is stored and available for analytical purposes
+
+## In-Database Analytics
+
+In-database analytics also seeks to speed up analytics, but in kind of the opposite web as in-memory computing. Instead of moving the data to a place where an analytical application can manipulate it quickly, with in-database analytics, we move specific analytical operations back into the database. Where they can be quickly executed as data is loaded into the database itself, either using ETL or other custom procedures. 
+
+
+
+

@@ -1,0 +1,41 @@
+---
+title: "Analytical Organizations"
+output: html_notebook
+---
+
+## Roles
+
+### Analytical Activities – A Simple Lexicon
+
++ **Data Architecture**: Overall design of the data environment to serve the needs of the enterprise
++ **Data Management**: Building & maintaining the data environment
++ **Reporting**: Standardized, periodic renderings of specific metrics or data relationships
++ **Ad-Hoc Analysis**: Directed analysis to answer a specific question; if same thing done repeatedly, should be reporting
++ **Modeling**: Advanced analysis or application of data using higher-order techniques
+
+*Data Mining*:  term that refers to the process of extracting useful information from data or mining insights - Reporting, Ad-Hoc Analysis and Modeling
+
+It turns out that the functions at the ends of the spectrum tend to rely a little more on creativity and design, thinking and problem solving. Well, those toward the center tend to rely more on operational and management skills.
+
+### Overview
+
+Organized around functions, customer groups, lines of business
+
+Activity Classes:
++ Data Architecture
++ Data Management
++ Reporting
++ Ad-Hoc Analytics
++ Modeling
+
+Roles:
++ Highly Technical IT & Support Roles
++ Technical Data Management & BI Roles
+  + **Data Architect**:  Designs and structures the databases in which information is to be stored
+Usually in an IT organization
+  + **Database Administrator** – Manages the creation and maintenance of databases, as well as access, stability, and efficiency. Usually in an IT organization, often in a data warehousing team
+  + **ETL Developer**: Implements the Extract, Transform, and Load logic that populates databases
+Usually in a data warehousing team within an IT organization
+  + **BI Developer**: More loosely defined, but generally administers more technical maintenance & development functions for a Business Intelligence toolset 
++ Data Manipulation & Analysis Roles: Database Analyst, Data Analyst and Modeler 
++ Multidimensional role of Data Scientist

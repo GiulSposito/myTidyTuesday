@@ -2,6 +2,7 @@
 title: "R Notebook"
 subtitle: Advanced Business Analytics - Week 1
 output:
+  word_document: default
   html_notebook: default
   pdf_document: default
   html_document:
@@ -18,6 +19,7 @@ The assessment has four parts:
 * **Relational data model**. You’ll then design a simple relational data model to represent some of the ideas from your conceptual model (like in Module 2), and describe what types of systems you think the data might come from (Module 1).
 * **SQL queries**. You’ll write two SQL queries to extract an interesting data set from your data model (Module 3)
 * **Sensitive data and data quality issues**. Finally, you’ll identify whether your model contains certain types of sensitive data, and assess where your model might be susceptible to data quality issues (Module 4).
+
 
 ```{r setup, warning=FALSE, echo=FALSE, message=FALSE}
 
@@ -249,14 +251,3 @@ Consider the data privacy and data quality implications of the data model you co
 
 * Identify any fields you think might be PII, CFI, CPNI, or PHI as we defined in Module 4, Video 4
 * What data elements in your model will present the most significant data quality challenges? Explain your reasoning.
-
-# Appendix - The Data Base Content
-
-Just for illustration I show part of the content of each table in the model.
-
-```{sql, connection=con}
-
-select * from team
-
-```
-

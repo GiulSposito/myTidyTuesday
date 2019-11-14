@@ -165,6 +165,8 @@ from league
 
 There is only one league in the data set, we'll use it's code: 3940933. Let's make this in two steps, first let's find which teams plays against each other in the week 5.
 
+### Query 1 - Games Schedule
+
 ```{sql connection=con}
 -- from the matchup
 select
@@ -185,6 +187,8 @@ where m.week=5 and m.league_id=3940933;
 
 Now we know what are the matchups for week 5, let's calculate each team's score in that week, to do this we join the roster of each team with the individual players points and sum up in a team score.
 
+### Query 2 - Roster Score
+
 ```{sql connection=con}
 -- week team total score
 select league_id, week, team_id, sum(points)
@@ -200,6 +204,8 @@ group by league_id, week, team_id;
 ```
 
 Now, let's up all toghether.
+
+### Query 3 - Game Score
 
 ```{sql connection=con}
 -- round results query
@@ -249,5 +255,31 @@ Finally we get the round *5* of league *3940933*, with the names of the teams an
 
 Consider the data privacy and data quality implications of the data model you constructed in Part 2.
 
-* Identify any fields you think might be PII, CFI, CPNI, or PHI as we defined in Module 4, Video 4
-* What data elements in your model will present the most significant data quality challenges? Explain your reasoning.
+*1) Identify any fields you think might be PII, CFI, CPNI, or PHI as we defined in Module 4, Video 4*
+
+There is no real implications of CFI, CPNI or PHI, once the dataset has no information about network activities, financial or helth informations. For personal information there is two table candidates, the **Owners Table** identifies the game player, there is a field *name* on it, but is used by players as *alias*, so the risk is minimal.
+
+```{sql connection=con}
+
+select * 
+from owner
+
+```
+
+The other PII risk is in the **Players Table**, that identifies real football player, but I think in this case is *by design*, you play Fantay with real football players performances and results.
+
+```{sql connection=con}
+select player_id, first_name, last_name, position, nfl_team_abbr
+from player
+```
+
+**What data elements in your model will present the most significant data quality challenges? Explain your reasoning.**
+
+In this case there only three data source provider:
+
+1. Fantasy Game
+1. NFL Stats
+1. Projections Websites
+
+Firsts two, Fantasy Game and NFL Stats, could have **Provenance** or **Timeliness** problems, but the probability is low because both are provided by NFL itself. But in the last, Projections Websites are, in fact, multple sources and could have several problems as **Conformance** (each site provides the information with differents formats), **Provenance** (each sites has your owmn quality standard) and also **Accuracy and Completeness** problems, because they haven't to comply necessarily with a Fantasy Game.
+

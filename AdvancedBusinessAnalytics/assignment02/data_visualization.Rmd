@@ -1,0 +1,80 @@
+---
+title: "Data Visualization"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# Instruction
+
+Customer reward programs are prevalent in the retail industry. Imagine that you were approached by a major retail company with a request to do preliminary visualization and analysis of the different reward programs available in the US.
+
+
+```{r loadData, warning=FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(xlsx)
+library(glue)
+
+crp <- read.xlsx("crp_cleandata.xlsx", sheetIndex = 1, stringsAsFactors=F, 
+                 colClasses=rep("character",14)) %>% 
+  # manually correct dataypes
+  mutate_at(vars(X2013USSales, X2013WorldSales, NumStores), str_replace_all, pattern="\\.", replacement="") %>% 
+  mutate_at(vars(Salerank,NumStores,X2013USSales, X2013WorldSales), as.integer) %>% 
+  mutate_at(vars(RewardSize, ExpirationMonth,ProfitMargin), parse_number) %>% 
+  mutate_at(vars(IndustryType), as.factor) %>% 
+  mutate( RewardType = ifelse(RewardType=="-", NA, RewardType),
+          RewardStructure = ifelse(RewardStructure=="-",NA, RewardStructure))
+
+```
+
+
+# Dataset
+
+The dataset in the file contains the customer reward program information for the top 100 US retailers based on annual sales. Several aspects of the customer reward programs are shown in this dataset, including customer reward program adoption, the size of customer reward, and the expiration term of customer rewards.
+
+```{r}
+crp %>% 
+  head() %>% 
+  kable() %>% 
+  kable_styling(font_size = 9)
+```
+
+
+The dataset contains the following columns:
+
+* **Retailer**: name of the retailer.
+* **Salerank**: sales rank of the retailer based on 2013 US sales.
+* **X2013USSales**: total US sales amount in the year 2013
+* **X2013WorldSales**: total worldwide sales amount in the year 2013
+* **NumStores**: number of stores
+* **Industry**: the industry of the retailer.
+* **ProfitMargin**: profit margin of the retailer.
+* **Reward**: whether the retailer has a customer reward program, Yes=1, and No=0.
+* **ProgramName**: name of the customer reward program, if any.
+* **RewardType**: type of the reward.
+* **RewardStructure**: a description of the structure of the reward.
+* **RewardSize**: reward as a percentage of purchase amount.
+* **ExpirationMonth**: number of months before earned rewards expire. 999 indicates no expiration.
+* **IndustryType**: a column created based on Industry.
+
+# Part 1
+
+Part 1. Create a plot to show at least one interesting aspect of the data. You can use Excel or another visualization software (such as Tableau). Make sure your file is less than 10MB to ensure your file gets uploaded correctly.
+
+```{r}
+crp %>% 
+  add_count(IndustryType) %>% 
+  mutate(industry_type = glue("{IndustryType} ({n})"),
+         industry_type = fct_reorder(industry_type, ProfitMargin) ) %>% 
+  ggplot(aes(x=industry_type, y=ProfitMargin, color=IndustryType)) +
+  geom_boxplot(show.legend = F) +
+  ggtitle("Profit Margin by Industry Type", subtitle="Boxplot of Profit Margin - In parenteses, the number of retailers") +
+  labs(x="Industry Type (# retailers)", y="Profit Margin (%)") +
+  theme_minimal() +
+  coord_flip()
+```
+
+
+# Part 2

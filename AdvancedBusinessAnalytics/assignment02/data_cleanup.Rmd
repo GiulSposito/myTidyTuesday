@@ -1,0 +1,129 @@
+---
+title: "Data Cleanup"
+subtitle: "Week 1 Application Assignment 1 (optional)"
+author: "Giuliano Sposito"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# Introduction
+
+Customer reward programs are prevalent in the retail industry. Imagine that you were approached by a major retail company with a request to clean up their dataset of different reward programs available in the US. The client provided you with the following datafile: crp.csv. You can use Excel or any other program that can open a csv file in a spreadsheet format for this assignment.
+
+# Data Set
+
+The dataset contains the customer reward program information for the top 100 US retailers based on annual sales. Several aspects of the customer reward programs are shown in this dataset, including customer reward program adoption, the size of customer reward, and the expiration term of customer rewards. The dataset contains the following columns:
+
+* Retailer: name of the retailer.
+* Salerank: sales rank of the retailer based on 2013 US sales.
+* X2013USSales: total US sales amount in the year 2013
+* X2013WorldSales: total worldwide sales amount in the year 2013
+* NumStores: number of stores
+* Industry: the industry of the retailer.
+* ProfitMargin: profit margin of the retailer.
+* Reward: whether the retailer has a customer reward program, Yes=1, and No=0.
+* ProgramName: name of the customer reward program, if any.
+* RewardType: type of the reward.
+* RewardStructure: a description of the structure of the reward.
+* RewardSize: reward as a percentage of purchase amount.ExpirationMonth: number of months before earned rewards expire. 999 indicates no expiration.
+
+# Question 1
+
+In exploratory data analysis, you would like to remove columns that are irrelevant for follow-up analysis. Which of the following columns should be removed? (Select all that apply.)
+
+```{r}
+library(tidyverse)
+
+crp <- read_csv("crp.csv", na = "-") %>% 
+  # parte correctly the money info
+  mutate(X2013USSales    = parse_number(X2013USSales   ), 
+         X2013WorldSales = parse_number(X2013WorldSales))
+
+crp %>% 
+  head()
+
+# what is in the "Relatiler"?
+crp %>% 
+  count(Retailer, sort = T)
+
+```
+
+* Retailer name doesn't matter, it is unique for each row.
+
+```{r}
+# what is in the Program Name
+crp %>% 
+  count(ProgramName, sort=T)
+
+# why there is programs names with 2 counts?
+crp %>% 
+  add_count(ProgramName) %>% 
+  filter(n==2) %>% 
+  View()
+
+```
+
+* ProgramName has near zero variation, or where is a name and is praticly unique or there isn't.
+
+```{r}
+crp %>% 
+  ggplot(aes(x=X2013USSales)) +
+  geom_histogram()
+
+crp %>% 
+  count(X2013USSales, sort = T)
+
+crp %>% 
+  ggplot(aes(x=X2013WorldSales)) +
+  geom_histogram()
+
+```
+
+* something are wrong in the max info
+
+```{r}
+
+summary(crp$X2013USSales)
+crp %>% filter(X2013USSales==max(X2013USSales))
+
+summary(crp$X2013WorldSales)
+crp %>% filter(X2013WorldSales==max(X2013WorldSales))
+
+```
+
+No, it's correctly, it's *Wal-Mart* :)
+
+```{r}
+crp %>% 
+  count(Industry,sort=T)
+
+crp %>% 
+  count(Reward, order=T)
+
+```
+
+```{r}
+crp %>% 
+  ggplot(aes(ProfitMargin)) +
+  geom_histogram()
+```
+
+# Question 2
+
+Which of the following columns have missing values? (Select all that apply.)
+
+```{r}
+
+crp %>% 
+  sapply(function(x) sum(is.na(x)))
+
+```
+
+# Question 3
+
+```{r}
+crp %>%
+  count(Reward, sort=T)
+```
+

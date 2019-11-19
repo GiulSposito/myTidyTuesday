@@ -1,0 +1,222 @@
+---
+title: "Week 2 Application Assignment"
+subtitle: "Predictive Modeling Analytics"
+output: html_notebook
+---
+
+# Introduction
+
+In this assignment we are continuing to work with customer reward programs (review assignments from Week 1 if you haven’t completed them). The data is in the file
+
+```{r loadData, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(broom)
+library(xlsx)
+library(glue)
+
+crp <- read.xlsx("crp_cleandata.xlsx", sheetIndex = 1, stringsAsFactors=F) %>% 
+  mutate( RewardType = ifelse(RewardType=="-", NA, RewardType),
+          RewardStructure = ifelse(RewardStructure=="-",NA, RewardStructure)) %>% 
+  mutate( ExpirationMonth = parse_number(ExpirationMonth),
+          RewardSize      = parse_number(RewardSize) )
+
+crp %>% 
+  head(10) %>% 
+  kable() %>% 
+  kable_styling(font_size = 8)
+
+```
+
+
+In this exercise, you will complete a predictive modeling task where the target variable is continuous based on the data in the shared file. 
+
+# Question 1
+
+First remove all rows where either the Reward or NumStores column takes the value 0. Also remove all rows where the rewards do not expire (ExpirationMonth=999). [Hint: You can sort the relevant columns to quickly find the rows to delete. ] How many rows are left after deleting these irrelevant rows, not counting the header row? What is the sum of the ExpirationMonth column?
+
+```{r}
+crp_clean <- crp %>% 
+  # remove reward or NumStores column takes the value 0
+  filter( Reward!=0, NumStores!=0 ) %>% 
+  filter( ExpirationMonth!=999 )
+```
+
+How many rows are left after deleting these irrelevant rows, not counting the header row? 
+
+```{r}
+nrow(crp_clean)
+```
+
+
+What is the sum of the ExpirationMonth column?
+
+```{r}
+sum(crp_clean$ExpirationMonth)
+```
+
+# Question 2
+
+Consider linear regression models with ExpirationMonth column as the target variable. Find the model with one predictor variable and **the highest R-squared**. Consider the following set of predictor variables: Salerank, X2013USSales, X2013WorldSales, NumStores,RewardSize, and ProfitMargin. Which variable did you choose?
+
+
+```{r}
+
+calc.r.squared <- function(.expr, .data) {
+  
+  model <- lm(.expr, .data)
+  
+  model %>% 
+    glance() %>% 
+    select(r.squared) %>%
+    mutate(r.squared = round(r.squared,4) ) %>% 
+    mutate( predictor = as.character(.expr)[3],
+            expression = list(.expr), 
+            model      = list(model) ) %>% 
+    return()
+  
+}
+
+
+q2_models <- c( ExpirationMonth ~ Salerank,
+             ExpirationMonth ~ X2013USSales,
+             ExpirationMonth ~ X2013WorldSales,
+             ExpirationMonth ~ NumStores,
+             ExpirationMonth ~ RewardSize,
+             ExpirationMonth ~ ProfitMargin )
+
+r2.result <- q2_models %>% 
+  map_df(calc.r.squared, .data=crp_clean) %>% 
+  arrange(desc(r.squared))
+
+r2.result %>% 
+  select( predictor, r.squared ) %>% 
+  kable()
+  
+```
+
+# Question 3
+
+What is the estimated intercept coefficient of the model?
+
+```{r}
+r2.result[1,]$model[[1]] %>% 
+  tidy() %>% 
+  filter(term=="(Intercept)") %>% 
+  mutate(estimate = round(estimate,4) ) %>% 
+  select(estimate)
+```
+
+# Question 4
+
+What is the estimated slope coefficient of the model?
+
+
+```{r}
+r2.result[1,]$model[[1]] %>% 
+  tidy() %>% 
+  filter(term=="NumStores") %>% 
+  mutate(estimate = round(estimate,4) ) %>% 
+  select(estimate)
+```
+
+# Question 5
+
+Data transformation is a great way to improve model fit. Now consider the log transformation for the model identified in the previous question. [Hint: Use log function to create the transformed columns.] You can choose to transform neither of them, one of them, or both of them. You should have four different models.
+
+* Model 1: neither variable is transformed; this gives you the same model as in the previous question.
+* Model 2: only the target variable is transformed
+* Model 3: only the explanatory variable is transformed
+* Model 4: both variables are transformed.
+
+Report the R-squared values of all four models.
+
+What is the R-squared for Model 1?
+R-squared for Model 2 is ( report answer using 4 decimal places i.e. x.xxxx )
+R-squared for Model 3 is ( report answer using 4 decimal places i.e. x.xxxx )
+R-squared for Model 4 is ( report answer using 4 decimal places i.e. x.xxxx )
+
+
+```{r}
+
+crp_transf <- crp_clean %>% 
+  select(ExpirationMonth, NumStores) %>% 
+  mutate( log_ExpirationMonth = log(ExpirationMonth),
+          log_NumStores = log(NumStores) )
+
+q5_models <- tibble(
+  num = 1:4,
+  expr = c(ExpirationMonth ~ NumStores,
+                log_ExpirationMonth ~ NumStores,
+                ExpirationMonth ~ log_NumStores,
+                log_ExpirationMonth ~ log_NumStores)
+  
+  ) %>% 
+  mutate( model = map(expr, function(.expr, .data){
+    lm(.expr, .data)
+  }, .data=crp_transf)) %>% 
+  mutate( r.squared = map_dbl(model, function(.model){
+    .model %>% 
+      glance() %>% 
+      pull(r.squared) %>% 
+      round(4)
+  }))
+
+q5_models %>% 
+  select(num, r.squared) %>% 
+  kable()
+```
+
+# Question 10
+
+Our analysis so far shows that variable transformation does not improve the model fit. Another way to improve model fit is to add more explanatory variables on the right side. 
+
+Again consider the following set of predictor variables: Salerank, X2013USSales, X2013WorldSales, NumStores, RewardSize, and ProfitMargin. 
+
+**Add one more variable to the best model you identified in the previous question**. Which variable will you add? Hint: The correct additional variable gives **the highest R-squared value**.
+
+```{r}
+
+
+q10_models <- c( ExpirationMonth ~ NumStores + Salerank,
+                 ExpirationMonth ~ NumStores + X2013USSales,
+                 ExpirationMonth ~ NumStores + X2013WorldSales,
+                 ExpirationMonth ~ NumStores + RewardSize,
+                 ExpirationMonth ~ NumStores + ProfitMargin )
+
+q10_r2_result <- q10_models %>% 
+  map_df(calc.r.squared, .data=crp_clean) %>% 
+  arrange(desc(r.squared))
+
+q10_r2_result %>% 
+  select(predictor, r.squared) %>% 
+  kable()
+  
+```
+
+# Question 12
+
+One way to figure out whether a linear regression model explains a particular data point well is to look at the residual. For which retailer do you have the highest absolute value of residual based on your result in the previous question?
+
+```{r}
+
+best_model <- q10_r2_result[1,]$model[[1]]
+crp_clean %>% 
+  mutate( abs_res = abs(residuals(best_model)) ) %>% 
+  filter( abs_res==max(abs_res) ) %>% 
+  select( Retailer, abs_res )
+
+```
+
+# Question 13
+
+For which retailer do you have the lowest residual based on your result in the previous question?
+
+```{r}
+crp_clean %>% 
+  mutate( abs_res = abs(residuals(best_model)) ) %>% 
+  # filter( Retailer %in% c("Macy's","Whole Foods","TJX","Starbucks")) %>% 
+  arrange( abs_res )
+```
+

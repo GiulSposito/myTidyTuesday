@@ -1,0 +1,243 @@
+---
+title: "Final Course Assignment"
+subtitle: "Predictive Modeling and Analytics - Week 4"
+output: html_notebook
+---
+
+# Intro
+
+Flight delays are disruptive to travel plans and cause significant direct and indirect costs to passengers and airline companies. United Airlines approached you with a request to help them understand the causes and predict the occurrences of flight delays in order to in order to help them better cope with flight delays. Airlines and transportation authorities have been paying close attention to flight delays over the years and collected detailed information of flight delays of all commercial flights. The file contains information on nonstop United Airlines flights during December 2015. This dataset was obtained from http://www.transtats.bts.gov and went through some preliminary preprocessing for this projects. The dataset contains 11 columns listed below.
+
+The assignment consists of the following parts: Data Cleanup and Visualization
+
+## Columns Descriptions
+
+* **CARRIER**: Code assigned by IATA to identify a carrier. Since all flights belong to United Airlines, this column only takes value “UA.”
+* **YEAR**: year of the flight
+* **MONTH**: month of the flight
+* **DAY_OF_MONTH**: day of the month
+* **DAY_OF_WEEK**: day of the week
+* **ORIGIN**: origin airport code
+* **DEST**: destination airport code
+* **CRS_DEP_TIME**: scheduled departure time (number of minutes since 12:00AM)
+* **CRS_ARR_TIME**: scheduled arrival time (number of minutes since 12:00AM)
+* **ARR_DELAY**: Difference in minutes between scheduled and actual arrival time. Early arrivals show negative numbers.
+* **ARR_DEL15**: Arrival Delay Indicator, 15 Minutes or More (1=Yes).
+* **CRS_ELAPSED_TIME**: scheduled flight duration (in minutes)
+* **ACTUAL_ELAPSED_TIME**: actual flight time (in minutes)
+* **DISTANCE**: distance between airports.
+
+```{r setup, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(xlsx)
+```
+
+# Part 1 - Data cleanup
+
+Use the following `delay-UA-messy.xlsx` data file for this part of the assignment.
+
+```{r messyData, eval=FALSE}
+# read dataset
+messy <- read.xlsx("delay-UA-messy.xlsx", sheetIndex = 1)
+saveRDS(messy, "delay-UA-messy.rds")
+```
+
+Suggest at least one data cleanup step you would like to perform on this dataset and explain your rationale for the suggestion. Here’s a list of some data cleanup considerations we discussed in the videos.
+
+* Do character variables have valid values?
+
+```{r}
+
+messy <- readRDS("delay-UA-messy.rds")
+clean <- readRDS("delay-UA-cleaned.rds")
+
+nrow(messy)
+nrow(clean)
+
+messy$ORIGIN %>% unique()
+clean$ORIGIN %>% unique()
+
+clean %>% 
+  filter(ORIGIN == "CVG")
+
+levels(messy$ORIGIN)
+levels(messy$DEST)
+
+```
+
+
+* Are numeric variables are within range?
+
+```{r}
+
+messy %>% 
+  summary()
+
+hist(messy$CRS_DEP_TIME, breaks=30, col = "red")
+hist(messy$CRS_ARR_TIME, breaks=30, col = "red")
+hist(messy$ARR_DELAY, breaks=30, col = "blue")
+hist(messy$ARR_DEL15, breaks=30, col = "blue")
+hist(messy$CRS_ELAPSED_TIME, breaks=30, col = "green")
+hist(messy$ACTUAL_ELAPSED_TIME, breaks=30, col = "green")
+hist(messy$DISTANCE, breaks=30, col = "grey")
+
+```
+
+* Are there missing values?
+
+```{r}
+messy %>% 
+  filter(!complete.cases(.))
+```
+
+* Are there any outliers?
+
+```{r}
+
+messy %>% 
+  ggplot(aes(x=CRS_ELAPSED_TIME, ACTUAL_ELAPSED_TIME)) +
+  geom_point(aes(color=ARR_DELAY), alpha=.5) +
+  theme_minimal()
+
+messy %>% 
+  mutate( ARR_DEL15 = as.logical(ARR_DEL15)) %>% 
+  ggplot(aes(x=CRS_ELAPSED_TIME, ACTUAL_ELAPSED_TIME)) +
+  geom_point(aes(color=ARR_DEL15)) +
+  geom_abline(intercept = 0, slope = 1, linetype="dashed", color="black") +
+  theme_minimal()
+
+messy %>% 
+  mutate(ARR_DEL15=(ARR_DEL15==1)) %>% 
+  ggplot(aes(x=ACTUAL_ELAPSED_TIME, y=ARR_DELAY, color=ARR_DEL15)) +
+  geom_point() +
+  theme_minimal()
+
+messy %>% 
+  mutate(ARR_DELAY = sqrt(ARR_DELAY)) %>% 
+  ggplot(aes(ARR_DELAY)) +
+  geom_histogram() +
+  theme_minimal()
+
+
+messy %>% 
+  filter(ARR_DELAY <= 25^2) %>% 
+  pull(ARR_DELAY) %>% 
+  summary()
+
+
+messy %>% 
+  filter(ARR_DELAY >= 25^2) %>% 
+  pull(ARR_DELAY) %>% 
+  summary()
+
+
+messy %>% 
+  filter(ARR_DELAY >= 25^2)
+
+```
+
+* Are there duplicate values?
+
+```{r}
+
+nrow(messy) - nrow(distinct(messy))
+
+```
+
+
+* Are values unique for some variables (e.g., ID variables)?
+
+```{r}
+glimpse(messy)
+```
+
+* Are the dates valid?
+
+```{r}
+messy %>% 
+  select (ARR_DELAY, ARR_DEL15) %>% 
+  filter(ARR_DELAY<15, ARR_DEL15==1)
+```
+
+
+
+* Do we need to combining multiple data files?
+
+???
+
+# Part 2 - Visualization 
+
+Use the following `delay-UA-cleaned.xlsx` data file for this part of the assignment.
+
+```{r cleanedData}
+# read dataset
+clean <- read.xlsx("delay-UA-cleaned.xlsx", sheetIndex = 1)
+saveRDS(clean, "delay-UA-cleaned.rds")
+```
+
+```{r}
+
+clean %>% 
+  glimpse()
+
+clean %>% 
+  ggplot(aes(x=DISTANCE, y=ARR_DELAY, color=ARR_DEL15)) +
+  geom_point() +
+  theme_minimal()
+  
+clean %>% 
+  mutate(
+    DISTANCE = as.factor(DISTANCE),
+    ARR_DEL15 = (ARR_DEL15==1)
+  ) %>% 
+  filter(ARR_DELAY <= 25^2 ) %>% 
+  ggplot(aes(ARR_DELAY, group=DISTANCE)) +
+  geom_density(aes(color=DISTANCE, fill=DISTANCE), alpha=.3) +
+  theme_minimal()
+
+clean  %>% 
+  mutate(
+    DISTANCE = as.factor(DISTANCE),
+    ARR_DEL15 = (ARR_DEL15==1)
+  ) %>% 
+  ggplot(aes(x=DISTANCE, y=ARR_DELAY, color=DISTANCE, group=DISTANCE)) +
+  geom_boxplot() +
+  theme_minimal()
+
+
+clean %>% 
+  mutate(
+    DISTANCE = as.factor(DISTANCE),
+    ARR_DEL15 = (ARR_DEL15==1)
+  ) %>% 
+  ggplot(aes(x=CRS_ELAPSED_TIME, y=ACTUAL_ELAPSED_TIME,
+             alpha=ARR_DELAY, color=ARR_DEL15)) + 
+  geom_point() +
+  geom_abline(slope=1, linetype="dashed") +
+  theme_minimal()
+  
+
+```
+
+```{r}
+
+messy %>% 
+  filter( ARR_DELAY <= 500, ORIGIN!="CVG" ) %>% 
+  mutate(DAY_OF_WEEK = as.factor(DAY_OF_WEEK)) %>% 
+  ggplot(aes(x = DAY_OF_WEEK, y=ARR_DELAY, color=DAY_OF_WEEK)) +
+  geom_boxplot(show.legend = F) +
+  labs(title = "Delay variation along days of week",
+       subtitle = "Showing that delays have more variance in the week days: 1,2 and 7") +
+  theme_minimal()
+
+messy %>% 
+  ggplot(aes(x=DAY_OF_WEEK, y=ARR_DELAY, color=ARR_DEL15)) +
+  geom_jitter()
+
+messy %>% 
+  ggplot(aes(x=DAY_OF_WEEK, y=ARR_DELAY)) +
+  geom_boxplot() +
+  theme_minimal()
+
+```
+

@@ -1,0 +1,115 @@
+---
+title: "Appointments - Logistic Regression"
+subtitle: "Predictive Modeling and Analytics"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup}
+library(tidyverse)
+library(caret)
+```
+
+# The dataset
+
+```{r readingXLS, eval=F}
+library(xlsx)
+
+# reading the data and save in a RDS to faster load
+app <- read.xlsx("appointments.xlsx", 1) # slow reading
+saveRDS(app, "appointments.rds")
+```
+
+# Exploring
+
+```{r}
+
+app <- readRDS("appointments.rds")
+
+glimpse(app)
+
+```
+
+# Simple Logistic Reg
+
+```{r}
+
+# predicting "Status" against "Lag"
+dtset <- app %>% 
+  as_tibble() %>% 
+  select(Lag, Status) %>% 
+  mutate( Status = as.logical(Status=="Cancelled"))
+
+model <- glm(Status~Lag, family = binomial(link = "logit"), data=dtset)
+summary(model)
+
+confusionMatrix(table(predict(model, type="response") >= 0.5, dtset$Status), positive = "TRUE")
+
+# predicting "Status" against "Lag"
+dtset <- app %>% 
+  as_tibble() %>% 
+  select(Lag, Status) 
+
+model <- glm(Status~Lag, family = binomial(link = "logit"), data=dtset)
+summary(model)
+
+y_hat <- factor(levels(dtset$Status)[1+(predict(model, type="response")>=.5)],
+                levels(dtset$Status))
+
+
+
+confusionMatrix(table(y_hat, dtset$Status), positive = "Cancelled")
+
+# pseudo R^2 (multiple R^2)
+pscl::pR2(model)["McFadden"]
+
+```
+
+# Multiple (Gender + Lag)
+
+```{r}
+
+# predicting "Status" against "Lag"
+dtset <- app %>% 
+  as_tibble() %>% 
+  select(Lag, Status, Gender) %>% as_tibble()
+
+dmv <- dummyVars(~Gender, dtset)
+gender_dummy <- predict(dmv, dtset) %>% as_tibble()
+
+dtset <- dtset %>% 
+  bind_cols(gender_dummy)
+
+model <- glm(Status ~ Lag + Gender.M, family = binomial(link = "logit"), data=dtset)
+summary(model)
+
+y_hat <- factor(levels(dtset$Status)[1+(predict(model, type="response")>=.5)],
+                levels(dtset$Status))
+
+confusionMatrix(table(y_hat, dtset$Status), positive = "Cancelled")
+
+# pseudo R^2 (multiple R^2)
+pscl::pR2(model)["McFadden"]
+
+```
+
+# Data Partition
+
+```{r}
+
+set.seed(12345)
+tidx <- createDataPartition(dtset$Status, p=.6, list = F)
+
+train <- dtset[tidx,]
+test  <- dtset[-tidx,]
+
+model <- glm(Status ~ Lag + Gender.M, family = binomial(link = "logit"), data=dtset)
+summary(model)
+
+y_hat <- factor(levels(dtset$Status)[1+(predict(model, newdata = test, type="response")>=.5)], levels(dtset$Status))
+
+confusionMatrix(table(y_hat, test$Status), positive = "Cancelled")
+
+```
+

@@ -35,7 +35,7 @@ In exploratory data analysis, you would like to remove columns that are irreleva
 ```{r}
 library(tidyverse)
 
-crp <- read_csv("crp.csv", na = "-") %>% 
+crp <- read_csv("./crp.csv", na = "-") %>% 
   # parte correctly the money info
   mutate(X2013USSales    = parse_number(X2013USSales   ), 
          X2013WorldSales = parse_number(X2013WorldSales))

@@ -1,0 +1,127 @@
+---
+title: "Final Course Assignment"
+output: html_notebook
+---
+
+## Intro
+
+Passenger airlines have been using proprietary pricing system to determine airfares since 1970s. Such practice is commonly called yield management. The goal of yield management is to sell airfare at the right price to the right people at the right time in order to maximize airline revenue. As a result of yield management practice, airlines frequently adjust prices of air tickets, as much as a few times a day. An interesting question for savvy travelers is whether it is possible to beat airlines at their own game by booking air tickets at the right time at the lowest possible price. The article [The Best Day to Buy Airline Tickets](https://www.wsj.com/articles/the-best-day-to-buy-airline-tickets-1413999377) in the Wall Street Journal claims that the best time to book a domestic air ticket is 58 days before departure.
+
+## Dataset
+
+```{r setup}
+library(tidyverse)
+library(xlsx)
+library(knitr)
+```
+
+```{r loadData, eval=FALSE}
+plan <- read.xlsx("faredata.xlsx",1)
+saveRDS(plan, "faredata.rds")
+```
+
+
+The file faredata.xlsx contains average airfare data on hundreds of thousands of air tickets sold by a domestic airline company. The average fare is reported in the column Fare. The average is for each combination of Origin, Destination, Channel, AdvanceDays, TicketWeekday, and DepartureWeekday. Brief descriptions of those columns are below:
+
+* **Origin**: Airport code of the origin city. There are origin cities in the data: DTW and MSP.
+* **Destination**: Airport code of the destination city. There are eight destination cities in the data, including ATL, DEN, DFW, LAS, LAX, MCO, SFO, and TPA.
+* **Channel**: The booking channel through which the tickets were sold. There are five booking channels, including Expedia, Orbitz, Travelocity, Offline, and Online Other.
+* **AdvanceDays**: The number of days the tickets were booked. The data range is 1 day to 211 days.
+* **TicketWeekday**: The weekday the tickets were issued.
+* **DepartureWeekday**: The weekday of the flight departure day.
+* **Miles**: The number of air miles between the origin and destination cities.
+
+```{r glimpseData}
+
+faredata <- readRDS("faredata.rds")
+
+faredata %>% 
+  head(10) %>% 
+  kable()
+
+```
+
+
+In the next 4 questions, choose the appropriate graphs to present the information for each of the following scenarios.
+
+## Questions
+
+### 1) Which of the following graphs would be most appropriate to present the cheapest weekday to book a ticket?
+
+```{r chartQ1}
+
+faredata %>% 
+  ggplot(aes(x=TicketWeekday, y=Fare)) +
+  geom_boxplot(aes(color=TicketWeekday)) +
+  theme_minimal()
+
+```
+
+### 3) Which of the following graphs would be most appropriate to present the distribution of fares in the data? (select all that apply)
+
+```{r dist}
+
+faredata %>% 
+  ggplot() +
+  geom_histogram(aes(Fare), bins=50) +
+  # geom_boxplot(aes(y=Fare)) +
+  theme_minimal()
+
+```
+
+### 3) Which of the following graphs would be most appropriate to present the relationship between Fare and Miles?
+
+```{r howFar}
+
+faredata %>% 
+  ggplot(aes(x=miles, y=Fare)) +
+  geom_point(aes(color=Destination)) +
+  theme_minimal()
+
+```
+
+
+### 4) Which of the following graphs would be most appropriate to present how far in advance you should book your ticket?
+
+```{r whenToBuy}
+
+faredata %>% 
+  ggplot(aes(x=AdvanceDays, y=Fare)) +
+  geom_point(color="blue") +
+  theme_minimal()
+
+```
+
+### 5) Sometimes you need to display multiple variables or combine multiple units of measurement. For each of the following scenarios, choose the appropriate table or graph design.
+
+Which of the following options would be the most appropriate to present the cheapest weekday to fly for the eight destination cities? (Select all that apply)
+
+```{r check}
+
+
+
+```
+
+### 9) Suppose the airfare data set were available to a small consulting firm with locations in Detroit (DTW) and Minneapolis (MSP). Most of their consultants travel each week from those locations to client locations that are represented by the destinations in the data set.
+
+The firm wants to provide guidance to its consultants to try and keep travel spending as low as possible. One unique aspect of their travel booking is that they normally try to book travel 3-4 weeks in advance, but may often book less than 2 weeks in advance of travel.
+
+Which booking channel should they recommend in general to get the lowest fares?
+
+```{r}
+
+glimpse(faredata) 
+
+faredata %>% 
+  filter( Origin %in% c("DTW","MSP") ) %>% 
+  filter( AdvanceDays >= 2*7, AdvanceDays <= 4*7 ) %>% 
+  group_by(Channel) %>% 
+  summarise( fare.avg = mean(Fare) ) %>% 
+  arrange( fare.avg )
+
+
+
+```
+
+
+

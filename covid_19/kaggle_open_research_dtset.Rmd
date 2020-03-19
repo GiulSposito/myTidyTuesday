@@ -1,0 +1,51 @@
+---
+title: "COVID-19 Open Research Dataset Challenge (CORD-19)"
+subtitle: "Exploratory Data Analysis"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(jsonlite)
+
+
+metadata <- read_csv("./2020-03-13/all_sources_metadata_2020-03-13.csv")
+
+View(metadata)
+
+metadata %>% 
+  count(license, sort = T)
+
+metadata %>% 
+  count(publish_time, sort = T)
+
+metadata %>% 
+  filter(has_full_text)
+
+metadata %>% 
+  filter(!is.na(abstract))
+
+```
+
+# Extracting text fom all teh full papers
+
+```{r}
+
+json_objects <- dir("./2020-03-13/comm_use_subset/comm_use_subset/", full.names=T) %>% 
+  map(read_json)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+

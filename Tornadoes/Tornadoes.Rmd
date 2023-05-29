@@ -1,0 +1,208 @@
+---
+title: "Tornadoes Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup}
+
+library(tidyverse)
+
+tornados <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-05-16/tornados.csv')
+
+theme_set(theme_light())
+
+```
+
+# EDA
+
+```{r}
+
+head(tornados)
+
+skimr::skim(tornados)
+
+# hist losses
+tornados |> 
+  mutate(loss = log(loss)) |> 
+  ggplot(aes(x=loss)) +
+  geom_histogram()
+
+# injury by losses
+tornados |> 
+  filter(loss>0) |> 
+  ggplot(aes(x=log(loss), y=log(inj))) +
+  geom_point(alpha=.5, color="blue") 
+
+# injury by mag
+tornados |> 
+  filter(loss>0) |> 
+  ggplot(aes(x=mag, y=log(inj+1))) +
+  geom_point(alpha=.5, color="blue") 
+
+tornados |> 
+  select(mag, inj) |> 
+  mutate(mag = as.factor(mag), inj = log(inj+1)) |> 
+  ggplot(aes(mag, inj)) +
+  geom_boxplot()
+
+# mag by time?
+tornados |> 
+  select(yr, loss) |> 
+  mutate(yr = 10*round(yr/10) ) |> 
+  ggplot(aes(as.factor(yr), log(loss+1))) +
+  geom_boxplot()
+
+# fc	logical	Was the mag column estimated?
+tornados |> 
+  ggplot(aes(mag, fill=fc)) +
+  geom_bar(position = position_dodge(preserve = "single")) +
+  scale_y_log10()
+
+```
+
+# eda for model
+
+```{r}
+tornados |> 
+  group_by(st) |> 
+  summarise(mag=mean(mag, na.rm=T), n=n()) |> 
+  arrange(-mag) # use the state as predictor for mag
+
+tornados |> 
+  filter(!is.na(mag)) |> 
+  mutate( mag = factor(mag, ordered = T)) |> 
+  ggplot(aes(mag, inj, fill=mag)) +
+  geom_boxplot(alpha=.6, show.legend = FALSE) +
+  scale_y_continuous(trans = scales::pseudo_log_trans())
+
+tornados |> 
+  filter(!is.na(mag)) |> 
+  mutate( mag = factor(mag, ordered = T)) |> 
+  ggplot(aes(mag, fat, fill=mag)) +
+  geom_boxplot(alpha=.6, show.legend = FALSE) +
+  scale_y_continuous(trans = scales::pseudo_log_trans())
+  
+tornados |> 
+  select(mag, inj) |> 
+  skimr::skim()
+  
+
+```
+
+# build a model
+
+## datasets
+
+```{r}
+library(tidymodels)
+
+# initial split
+set.seed(1975)
+tornados_split <- tornados |> 
+  filter(!is.na(mag)) |> 
+  initial_split(strata = mag)
+
+# training and test set
+tornado_train <- training(tornados_split)
+tornado_test  <- testing(tornados_split)
+
+# folds
+set.seed(42)
+tornado_folds <- vfold_cv(tornado_train, strata = mag)
+
+```
+
+## feature eng
+
+```{r}
+library(embed)
+
+tornado_rec <- recipe(mag ~ date + st + inj + fat + len + wid, data=tornado_train) |> 
+  step_lencode_glm(st, outcome = vars(mag)) |> 
+  step_date(date, features = c("month","year"), keep_original_cols = F) |> 
+  step_log(inj, fat, len, wid) |> 
+  step_dummy(all_nominal_predictors())
+
+tornado_rec |> 
+  prep() |> 
+  juice() |> 
+  skimr::skim()
+
+```
+
+## modeling
+
+```{r}
+xgb_spec <- boost_tree(
+    trees = tune(),
+    min_n = tune(),
+    mtry  = tune(),
+    learn_rate = .01
+  ) |>
+    set_engine("xgboost") |>
+    set_mode("regression")
+
+xgb_wf <- workflow(tornado_rec, xgb_spec)
+
+```
+
+## tunning
+
+```{r}
+library(finetune)
+doParallel::registerDoParallel()
+
+set.seed(2023)
+tune_race <- tune_race_anova(
+  xgb_wf,
+  resamples = tornado_folds,
+  grid = 15,
+  control = control_race(verbose_elim = T)
+)
+
+```
+
+
+## eval
+
+```{r}
+tune_race
+collect_metrics(tune_race)
+plot_race(tune_race)
+```
+
+## final fit
+
+```{r}
+xgb_fit <- xgb_wf |> 
+  finalize_workflow(select_best(tune_race, "rmse")) |> 
+  last_fit(tornados_split)
+```
+
+```{r}
+xgb_fit |> 
+  collect_metrics()
+
+collect_predictions(xgb_fit) |> 
+  mutate(mag = factor(mag)) |> 
+  ggplot(aes(mag, .pred, fill=mag)) +
+  geom_boxplot(alpha=.6, show.legend = F) 
+
+```
+
+## feature imp
+
+```{r}
+library(vip) 
+
+xgb_fit |> 
+  extract_workflow() |> 
+  extract_fit_parsnip() |> 
+  vip(num_features=10)
+```
+
+
+
+

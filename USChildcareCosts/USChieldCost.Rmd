@@ -1,0 +1,121 @@
+---
+title: "US Childcare Cost"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# setup
+
+```{r}
+library(tidyverse)
+
+childcare_costs <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-05-09/childcare_costs.csv')
+counties <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-05-09/counties.csv')
+```
+
+# basic EDA
+
+```{r}
+
+skimr::skim(childcare_costs)
+
+childcare_costs |> 
+  ggplot(aes(study_year, mcsa, group=study_year, fill=study_year)) +
+  geom_boxplot(alpha=.6, show.legend = F) +
+  scale_fill_distiller(palette="Spectral") +
+  theme_light()
+  
+childcare_costs |> 
+  ggplot(aes(mhi_2018, mcsa, color=flfpr_20to64)) +
+  geom_point(alpha=.4) +
+  scale_color_viridis_c() +
+  theme_light()
+
+childcare_costs |> 
+  select(mcsa, mhi_2018, starts_with("one_race")) |> 
+  select(-one_race) |> 
+  pivot_longer(starts_with("one_race")) |> 
+  ggplot(aes(value, mcsa, color=mhi_2018)) +
+  geom_point(alpha=.5) +
+  scale_color_viridis_c() +
+  facet_wrap(name~., scales = "free") +
+  theme_light()
+
+```
+
+# build model
+
+```{r}
+library(tidymodels)
+
+set.seed(1975)
+child_spit <- childcare_costs |> 
+  select(-matches("^mc_|^mf"), -county_fips_code) |> 
+  glimpse() |> 
+  na.omit() |> 
+  initial_split(strata = mcsa)
+
+child_train <- training(child_spit)
+child_test  <- testing(child_spit)
+
+set.seed(42)
+child_set <- validation_split(child_train)
+child_set
+```
+
+```{r}
+
+xgb_spec <-
+  boost_tree(
+    trees = 500,
+    min_n = tune(),
+    mtry = tune(),
+    stop_iter = tune(),
+    learn_rate = 0.01
+  ) |>
+  set_engine("xgboost", validation = .2) |>
+  set_mode("regression")
+
+xgb_wf <- workflow(mcsa~., xgb_spec)
+xgb_wf
+
+```
+
+```{r}
+doParallel::registerDoParallel()
+
+set.seed(123)
+xgb_rs <- tune_grid(xgb_wf, child_set, grid = 15)
+xgb_rs
+```
+
+# Eval
+
+```{r}
+
+autoplot(xgb_rs)
+show_best(xgb_rs, "rmse")
+```
+
+```{r}
+child_fit <- xgb_wf |> 
+  finalize_workflow(select_best(xgb_rs, "rmse")) |> 
+  last_fit(child_spit)
+```
+
+```{r}
+child_fit
+collect_metrics(child_fit)
+
+library(vip)
+
+extract_workflow(child_fit) |> 
+  extract_fit_parsnip() |> 
+  vip(num_features = 15, geom="point")
+
+```
+
+
+
+

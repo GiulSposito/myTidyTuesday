@@ -1,0 +1,138 @@
+---
+title: "drought in TX"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r loaddata}
+
+library(tidyverse)
+
+drought_raw <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-06-14/drought.csv')
+drought_raw_fips <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-06-14/drought-fips.csv')
+
+```
+
+# cleaning and subsetting
+
+```{r}
+
+drought <-
+  drought_raw_fips %>%
+  janitor::clean_names() %>%
+  filter(state == "TX", lubridate::year(date) == 2021) %>%
+  group_by(fips) %>%
+  summarise(dsci = mean(dsci))
+
+
+```
+
+# visualizing
+
+```{r}
+
+library(tidycensus)
+
+tx_median_income <-
+  get_acs(
+    geography = "county",
+    state = "TX",
+    variables = "B19013_001",
+    year = 2020,
+    geometry = T
+  )
+
+drought_sf <- tx_median_income %>% 
+  left_join(drought, by=c("GEOID"="fips"))
+
+drought_sf %>% 
+  ggplot(aes(fill=dsci)) +
+  geom_sf(alpha=.9, color=NA) +
+  scale_fill_viridis_c() +
+  theme_minimal()
+
+```
+
+```{r}
+drought_sf %>% 
+  ggplot(aes(dsci, estimate)) +
+  geom_point(alpha=.8, size=2) +
+  geom_smooth(method="lm") +
+  theme_minimal()
+```
+
+
+# build a model
+
+```{r}
+library(tidymodels)
+library(spatialsample)
+
+set.seed(42)
+folds <- spatial_block_cv(drought_sf, v=10)
+folds
+```
+
+
+```{r}
+autoplot(folds)
+autoplot(folds$splits[[5]])
+```
+
+```{r}
+drought_res <-
+  workflow(estimate ~ dsci, linear_reg()) %>%
+  fit_resamples(folds, control = control_resamples(save_pred = T))
+
+drought_res
+```
+
+```{r}
+collect_predictions(drought_res)
+```
+
+# Mapping modeling results
+
+```{r}
+drought_rmse <-
+  drought_sf %>%
+  mutate(.row = row_number())  %>%
+  left_join(collect_predictions(drought_res)) %>%
+  group_by(GEOID) %>%
+  rmse(estimate, .pred) %>%
+  select(GEOID, .estimate)
+```
+
+```{r}
+drought_sf %>% 
+  left_join(drought_rmse) %>% 
+  ggplot(aes(fill=.estimate)) +
+  geom_sf(color=NA, alpha=.8) +
+  labs(fill="RMSE") +
+  scale_fill_viridis_c(labels=scales::dollar_format()) +
+  theme_minimal()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

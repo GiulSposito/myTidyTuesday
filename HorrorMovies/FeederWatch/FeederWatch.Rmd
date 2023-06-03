@@ -1,0 +1,246 @@
+---
+title: "FeederWatch"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# setup and load
+
+```{r}
+library(tidyverse)
+theme_set(theme_light())
+
+
+feederwatch <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-01-10/PFW_2021_public.csv')
+site_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-01-10/PFW_count_site_data_public_2021.csv')
+
+```
+
+# eda
+
+## feederwatch
+
+```{r}
+
+skimr::skim(feederwatch)
+
+```
+
+### Chars
+
+```{r}
+
+feederwatch %>% 
+  select(where(is.character))
+
+# distribuição de observações por localidade
+feederwatch %>% 
+  count(loc_id, sort=T) %>% 
+  ggplot(aes(n)) +
+  geom_histogram()
+
+# distribuição das especies
+feederwatch %>% 
+  count(species_code, sort=T) %>%
+  ggplot(aes(n)) +
+  geom_histogram()
+  
+
+```
+
+
+```{r}
+
+site_data <- site_data %>% 
+  mutate(squirrels = if_else(squirrels==1, "squirrels", "no squirrels"))
+
+glimpse(site_data)
+skimr::skim(site_data)
+
+site_data %>% 
+  count(squirrels)
+
+site_data %>% 
+  filter(!is.na(squirrels)) %>% 
+  group_by(squirrels) %>% 
+  summarise(nearby_feeders = mean(nearby_feeders, na.rm=T))
+  
+site_data %>% 
+  filter(!is.na(squirrels)) %>% 
+  group_by(squirrels) %>% 
+  summarise(across(contains("hab"), mean, na.rm=T)) %>% 
+  pivot_longer(cols = contains("hab")) %>% 
+  mutate(name = str_remove(name, "hab_"),
+         name = fct_reorder(name, value)) %>% 
+  ggplot(aes(value, name, fill=squirrels)) +
+  geom_col(alpha=.8, position = "dodge") +
+  scale_x_continuous(labels=scales::percent) +
+  labs(x="% of locations", y=NULL, fill=NULL)
+
+```
+
+
+# building a model
+
+```{r}
+library(tidymodels)
+
+set.seed(42) # the life, the universe and everything else... 
+feed_split <- site_data %>% 
+  filter(!is.na(squirrels)) %>% 
+  select(where(~!all(is.na(.x)))) %>% 
+  select(-loc_id, -proj_period_id, -fed_yr_round) %>% 
+  select(squirrels, everything()) %>% 
+  initial_split(strata=squirrels)
+
+feeder_train <- training(feed_split)
+feeder_test <-  testing(feed_split)
+
+set.seed(1975) # initial hello world
+feeder_folds <- vfold_cv(feeder_train, strata = squirrels)
+feeder_folds
+```
+
+
+# pre proccessing
+
+```{r}
+feeder_rec <- 
+  recipe(squirrels ~ ., data=feeder_train) %>% 
+  step_impute_mean(all_numeric_predictors()) %>% 
+  step_nzv(all_numeric_predictors())
+
+prep(feeder_rec) %>% 
+  juice()
+
+```
+
+
+# models
+
+```{r}
+glmnet_spec <- 
+  logistic_reg(penalty = tune(), mixture=1) %>% 
+  set_engine("glmnet")
+
+library(themis) # downsample
+
+wf_set <- 
+  workflow_set(
+    # workflow set with two pre processors and one model --> two wfs
+    list(basic=feeder_rec,
+         downsampling = feeder_rec %>% step_downsample(squirrels)), 
+    list(glmnet=glmnet_spec)
+  )
+
+wf_set
+```
+ 
+# hypertunning
+
+```{r}
+narrower_penalty <- penalty(range=c(-3,0))
+
+doParallel::registerDoParallel()
+
+set.seed(2023) # today
+
+tune_rs <- 
+  workflow_map(
+    wf_set, 
+    "tune_grid",
+    resamples=feeder_folds,
+    grid=15,
+    metrics = metric_set(accuracy, mn_log_loss, sensitivity, specificity),
+    param_info = parameters(narrower_penalty)
+  )
+
+tune_rs
+```
+
+# evaluate
+
+```{r}
+
+autoplot(tune_rs) + theme(legend.position = "none")
+rank_results(tune_rs, rank_metric = "sensitivity")
+rank_results(tune_rs, rank_metric = "mn_log_loss")
+
+```
+
+```{r}
+downsample_rs <- tune_rs %>% 
+  extract_workflow_set_result("downsampling_glmnet")
+
+autoplot(downsample_rs)
+```
+
+
+```{r}
+best_penalty <- 
+  downsample_rs %>% 
+  select_by_one_std_err(-penalty, metric = "mn_log_loss")
+
+downsample_rs %>% 
+  unnest(.metrics) %>% 
+  filter(.metric == "mn_log_loss") %>% 
+  arrange(desc(.estimate))
+
+best_penalty
+```
+
+
+```{r}
+final_fit <- 
+  wf_set %>% 
+  extract_workflow("downsampling_glmnet") %>% 
+  finalize_workflow(best_penalty) %>% 
+  last_fit(feed_split)
+
+final_fit
+```
+
+```{r}
+collect_metrics(final_fit)
+```
+
+```{r}
+final_fit %>% 
+  collect_predictions() %>% 
+  conf_mat(squirrels, .pred_class)
+```
+
+```{r}
+library(vip)
+
+feeder_vip <- 
+  extract_fit_engine(final_fit) %>% 
+  vi()
+
+feeder_vip
+```
+
+```{r}
+feeder_vip %>% 
+  group_by(Sign) %>% 
+  slice_max(Importance, n=15) %>% 
+  ungroup() %>% 
+  mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+  ggplot(aes(Importance, Variable, fill=Sign)) +
+  geom_col() +
+  labs(y=NULL) +
+  facet_wrap(Sign~., scales="free_y") +
+  theme(legend.position = "none")
+```
+
+
+
+
+
+
+
+
+
+
+

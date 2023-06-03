@@ -1,0 +1,203 @@
+---
+title: "Cocktail PCA and UMAOP"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# setup
+
+```{r}
+library(tidyverse)
+
+boston_cocktails <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-26/boston_cocktails.csv")
+
+```
+
+# EDA
+
+```{r}
+
+skimr::skim(boston_cocktails)
+
+boston_cocktails |> 
+  count(ingredient, sort=T) |> 
+  View()
+
+```
+
+# Data Cleaning
+
+```{r}
+cocktails_parsed <- boston_cocktails %>%
+  mutate(
+    ingredient = str_to_lower(ingredient),
+    ingredient = str_replace_all(ingredient, "-", " "),
+    ingredient = str_remove(ingredient, " liqueur$"),
+    ingredient = str_remove(ingredient, " (if desired)$"),
+    ingredient = case_when(
+      str_detect(ingredient, "bitters") ~ "bitters",
+      str_detect(ingredient, "lemon") ~ "lemon juice",
+      str_detect(ingredient, "lime") ~ "lime juice",
+      str_detect(ingredient, "grapefruit") ~ "grapefruit juice",
+      str_detect(ingredient, "orange") ~ "orange juice",
+      TRUE ~ ingredient
+    ),
+    measure = case_when(
+      str_detect(ingredient, "bitters") ~ str_replace(measure, "oz$", "dash"),
+      TRUE ~ measure
+    ),
+    measure = str_replace(measure, " ?1/2", ".5"),
+    measure = str_replace(measure, " ?3/4", ".75"),
+    measure = str_replace(measure, " ?1/4", ".25"),
+    measure_number = parse_number(measure),
+    measure_number = if_else(str_detect(measure, "dash$"),
+      measure_number / 50,
+      measure_number
+    )
+  ) %>%
+  add_count(ingredient) %>%
+  filter(n > 15) %>%
+  select(-n) %>%
+  distinct(row_id, ingredient, .keep_all = TRUE) %>%
+  na.omit()
+
+cocktails_parsed
+```
+
+# Data Preparing
+
+```{r}
+cocktails_df <- cocktails_parsed %>%
+  select(-ingredient_number, -row_id, -measure) %>%
+  pivot_wider(names_from = ingredient, values_from = measure_number, values_fill = 0) %>%
+  janitor::clean_names() %>%
+  na.omit()
+
+cocktails_df
+```
+
+
+# PCA
+
+```{r}
+
+library(tidymodels)
+
+pca_rec <- recipe(~., data=cocktails_df) |> 
+  update_role(name, category, new_role = "id") |> 
+  step_normalize(all_predictors()) |> 
+  step_pca(all_predictors())
+
+pca_prep <- prep(pca_rec)
+
+pca_prep |> 
+  juice() 
+
+pca_prep |> 
+  tidy()
+
+pca_prep |> 
+  tidy(2) |> 
+  distinct(component)
+
+tied_pca <- tidy(pca_prep, 2)
+
+```
+
+# visualizing
+
+```{r}
+
+tied_pca |> 
+  filter( component %in% paste0("PC", 1:5)) |> 
+  ggplot(aes(x=value, y=terms, fill=terms)) +
+  geom_col(show.legend = F) + 
+  facet_wrap(~component, nrow=1) + 
+  labs(y=NULL)
+```
+
+```{r}
+pca_prep |> 
+  juice() |> 
+  ggplot(aes(PC1, PC2, label=name)) +
+  geom_point(aes(color=category), alpha=.7, size=2) +
+  geom_text(check_overlap = T, hjust="inward") +
+  labs(color=NULL) +
+  theme_light()
+  
+```
+
+# UMAP
+
+```{r}
+library(embed)
+
+umap_rec <- recipe(~., data=cocktails_df) |> 
+  update_role(name, category, new_role = "id") |> 
+  step_normalize(all_predictors()) |> 
+  step_umap(all_predictors())
+
+umap_prep <- prep(umap_rec)
+
+umap_prep |> 
+  juice() 
+
+umap_prep |> 
+  tidy()
+
+umap_prep |> 
+  tidy(2)
+
+```
+
+
+```{r}
+
+umap_prep |> 
+  juice() |> 
+  ggplot(aes(UMAP1, UMAP2, label=name)) +
+  geom_point(aes(color=category), alpha=.7, size=2) +
+  geom_text(check_overlap = T, hjust="inward") +
+  labs(color=NULL) +
+  theme_light()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

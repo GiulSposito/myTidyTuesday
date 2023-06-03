@@ -1,0 +1,94 @@
+---
+title: "Apriori"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# load data
+
+```{r}
+library(tidyverse)
+
+raw_data <- readr::read_csv("https://raw.githubusercontent.com/luoyetx/Apriori/master/data.csv", col_names = F)
+```
+
+# tidying
+
+```{r}
+data <- raw_data %>% 
+  mutate(id = row_number()) %>% 
+  pivot_longer(cols=-id) %>% 
+  select(id, name=value) %>% 
+  count(id, name, name="value") 
+```
+
+# suport
+
+```{r}
+
+transactions <- max(data$id)
+
+support <- data %>% 
+  group_by(name) %>% 
+  summarise(supp = sum(value)/transactions)
+  
+I_freq <- support %>% 
+  filter(supp > .4)
+
+data %>% 
+  inner_join(I_freq, by="name") %>% 
+  select(id, name) %>% 
+  add_count(name="total") %>% 
+  left_join(data, by="id") %>% 
+  group_by(name.x, name.y, total) %>% 
+  summarise(count = sum(value), .groups = "drop") %>% 
+  mutate(supp = count/total) %>% 
+  filter(supp > .4)
+
+```
+
+```{r}
+library(arules)
+library(arulesViz)
+library(RColorBrewer)
+```
+
+
+```{r}
+data("Groceries")
+
+rules <- apriori(Groceries, parameter=list(supp=0.01, conf=0.2))
+
+inspect(rules) %>% 
+  as_tibble(.name_repair="unique") %>% 
+  arrange(desc(confidence), desc(support))
+
+itemFrequencyPlot(Groceries, topN=20, col=brewer.pal(8, "Pastel2"), 
+                  main="Relative Item Frequency Plot",
+                  type="relative", 
+                  ylab="Item Frequency (Relative)") 
+
+tr_mtx <- data %>% 
+  mutate(value = value==1) %>% 
+  pivot_wider(id_cols=id, values_fill = F) %>% 
+  select(-id) %>% 
+  as.matrix()
+
+rules <- arules::transactions(tr_mtx) %>% 
+  apriori()
+
+inspect(rules)
+
+arulesViz::associations2igraph(rules, associationsAsNodes = F) %>% 
+  tidygraph::as_tbl_graph() %>% 
+  activate(edges) %>% 
+  filter(confidence>=.8, lift>2) %>% 
+  ggraph() +
+  geom_edge_fan(aes(alpha=confidence, size=lift)) +
+  geom_node_label(aes(label=label))
+
+library(ggraph)
+
+```
+
